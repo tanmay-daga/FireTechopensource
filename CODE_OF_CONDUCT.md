@@ -7,4 +7,4 @@ We want Bug Buster to be a safe, welcoming space for everyone.
 - Give and accept constructive feedback gracefully.
 
 This project follows the [MLH Code of Conduct](https://mlh.io/code-of-conduct).
-To report a problem, email incidents@mlh.io or contact the maintainers. Maintainers may remove contributions or contributors that break these rules.
+To report a problem, email incidents@mlh.io or contact the maintainers.

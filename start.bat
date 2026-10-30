@@ -52,7 +52,7 @@ echo [4/4] Starting Bug Buster...
 start "BugBuster Backend (port 8000)" /d "%~dp0backend" cmd /k ".venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000"
 start "BugBuster Frontend (port 5500)" /d "%~dp0frontend" cmd /k "..\backend\.venv\Scripts\python.exe -m http.server 5500"
 timeout /t 4 /nobreak >nul
-start "" http://localhost:5500
+start "" http://localhost:5500/exp.html
 
 echo.
 echo Bug Buster is running at http://localhost:5500

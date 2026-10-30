@@ -99,7 +99,7 @@ All errors are JSON: `{"detail": "what went wrong", "error": "code"}`.
 ## Troubleshooting
 
 * **Browser says CORS error**: add your frontend's exact address to `ALLOWED_ORIGINS` in `.env` and restart. Opening
-  `index.html` by double-clicking (`file://`) will not work; serve it (VS Code Live Server, or `python -m http.server 8080`).
+  `exp.html` by double-clicking (`file://`) will not work; serve it (VS Code Live Server, or `python -m http.server 8080`).
 * **`model_available: false`**: run `ollama pull gemma3:4b` (or set `OLLAMA_MODEL` to a model you have). The model must
   support images; `gemma3:4b` does, `gemma3:1b` does not.
 * **Slow or timeouts**: lower `OLLAMA_NUM_CTX` to 8192 and `MAX_PROMPT_SOURCE_KB` to 20; use a smaller screenshot.

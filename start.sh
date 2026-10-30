@@ -43,8 +43,8 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 sleep 4
-if command -v open >/dev/null 2>&1; then open http://localhost:5500
-elif command -v xdg-open >/dev/null 2>&1; then xdg-open http://localhost:5500 >/dev/null 2>&1 || true
+if command -v open >/dev/null 2>&1; then open http://localhost:5500/exp.html
+elif command -v xdg-open >/dev/null 2>&1; then xdg-open http://localhost:5500/exp.html >/dev/null 2>&1 || true
 fi
 
 echo
