@@ -1,0 +1,32 @@
+/* Bug Buster demo: the "Log in" button text is invisible (same colour as its background). */
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f6f8;
+  margin: 0;
+}
+
+.card {
+  width: 320px;
+  margin: 80px auto;
+  padding: 24px;
+  background: #ffffff;
+  border-radius: 8px;
+}
+
+#email {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+
+.login-btn {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  background: #2d6cdf;
+  color: #2d6cdf;
+  font-size: 16px;
+}

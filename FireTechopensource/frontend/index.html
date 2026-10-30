@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Bug Buster turns a screenshot of a broken page into a culprit file, a plain-English cause and a reviewable patch, using a local Gemma model.">
+  <title>Bug Buster - Visual Bug-to-Patch Engine</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23ff7a1a' d='M12 2.5c-4.14 0-7.5 3.2-7.5 7.2v10.6c0 .6.7.9 1.1.5l1.6-1.5 1.6 1.5c.4.4 1 .4 1.4 0L12 18.8l1.8 1.5c.4.4 1 .4 1.4 0l1.6-1.5 1.6 1.5c.4.4 1.1.1 1.1-.5V9.7c0-4-3.36-7.2-7.5-7.2z'/%3E%3Ccircle cx='9.2' cy='10.2' r='1.3' fill='%230a0a0d'/%3E%3Ccircle cx='14.8' cy='10.2' r='1.3' fill='%230a0a0d'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+
+  <!-- ===== SVG sprite: icons and the ghost mark (inline, no external requests) ===== -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id="gb-grad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#ff9d4d"/>
+        <stop offset="0.55" stop-color="#ff7a1a"/>
+        <stop offset="1" stop-color="#a78bfa"/>
+      </linearGradient>
+    </defs>
+    <symbol id="ghost" viewBox="0 0 24 24">
+      <path fill="url(#gb-grad)" d="M12 2.5c-4.14 0-7.5 3.2-7.5 7.2v10.6c0 .6.7.9 1.1.5l1.6-1.5 1.6 1.5c.4.4 1 .4 1.4 0L12 18.8l1.8 1.5c.4.4 1 .4 1.4 0l1.6-1.5 1.6 1.5c.4.4 1.1.1 1.1-.5V9.7c0-4-3.36-7.2-7.5-7.2z"/>
+      <circle cx="9.2" cy="10.2" r="1.3" fill="#0a0a0d"/>
+      <circle cx="14.8" cy="10.2" r="1.3" fill="#0a0a0d"/>
+      <ellipse cx="12" cy="13.6" rx="1.1" ry="1.5" fill="#0a0a0d"/>
+    </symbol>
+    <!-- One-colour ghost with cut-out eyes and mouth (used inside the main button) -->
+    <symbol id="ghost-mono" viewBox="0 0 24 24">
+      <path fill="currentColor" fill-rule="evenodd" d="M12 2.5c-4.14 0-7.5 3.2-7.5 7.2v10.6c0 .6.7.9 1.1.5l1.6-1.5 1.6 1.5c.4.4 1 .4 1.4 0L12 18.8l1.8 1.5c.4.4 1 .4 1.4 0l1.6-1.5 1.6 1.5c.4.4 1.1.1 1.1-.5V9.7c0-4-3.36-7.2-7.5-7.2zM9.2 8.9a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6zM14.8 8.9a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6zM12 12.1c-.6 0-1.1.7-1.1 1.5s.5 1.5 1.1 1.5 1.1-.7 1.1-1.5-.5-1.5-1.1-1.5z"/>
+    </symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2.5h8.5A1.5 1.5 0 0 1 21 10v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18V7.5z"/></symbol>
+    <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M9 3v2M15 3v2M9 19v2M15 19v2M3 9h2M3 15h2M19 9h2M19 15h2"/></symbol>
+    <symbol id="i-diff" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/><path d="M6 8v8M8.2 6H12a4 4 0 0 1 4 4"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5l9.5 16.5h-19L12 3.5z"/><path d="M12 10v4.5M12 17.5v.01"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7.5A1.5 1.5 0 0 0 6 4.5v15A1.5 1.5 0 0 0 7.5 21h9a1.5 1.5 0 0 0 1.5-1.5V7l-4-4z"/><path d="M14 3v4h4"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="M8.5 8l-4 4 4 4M15.5 8l4 4-4 4M13.5 5.5l-3 13"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 2.5v5.5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V5.5L12 3z"/><path d="M9 12l2.2 2.2L15.5 10"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+  </svg>
+
+  <!-- ===== Atmosphere (purely decorative) ===== -->
+  <div class="bg" aria-hidden="true">
+    <div class="bg-orb bg-orb--orange"></div>
+    <div class="bg-orb bg-orb--purple"></div>
+    <div class="bg-grid"></div>
+    <div class="embers">
+      <span style="--x:8%;  --d:0s;   --t:11s"></span>
+      <span style="--x:19%; --d:3s;   --t:14s"></span>
+      <span style="--x:31%; --d:6s;   --t:12s"></span>
+      <span style="--x:44%; --d:1.5s; --t:16s"></span>
+      <span style="--x:57%; --d:8s;   --t:13s"></span>
+      <span style="--x:68%; --d:4s;   --t:15s"></span>
+      <span style="--x:79%; --d:9s;   --t:12s"></span>
+      <span style="--x:91%; --d:2s;   --t:17s"></span>
+    </div>
+  </div>
+
+  <a class="skip-link" href="#exorcise">Skip to the tool</a>
+
+  <!-- ===== Header ===== -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="#top" aria-label="Bug Buster home">
+        <svg class="brand-mark" aria-hidden="true"><use href="#ghost"/></svg>
+        <span class="brand-word">Bug <span class="grad-text">Buster</span></span>
+      </a>
+
+      <nav class="nav-links" aria-label="Main">
+        <a href="#how">How it works</a>
+        <a href="#exorcise">Exorcise a bug</a>
+        <a href="#results">Results</a>
+      </nav>
+
+      <div class="header-actions">
+        <!-- data-status: checking | online | degraded | offline -->
+        <div id="conn-pill" class="conn-pill" data-status="checking" role="status" aria-live="polite" title="Checking backend connection...">
+          <span class="dot" aria-hidden="true"></span>
+          <span id="conn-label">Checking backend</span>
+        </div>
+        <button id="open-settings" class="icon-btn" type="button" aria-label="Backend settings" title="Backend settings">
+          <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+
+    <!-- ===== Hero ===== -->
+    <section class="hero container">
+      <div class="hero-copy">
+        <span class="eyebrow"><svg class="icon" aria-hidden="true"><use href="#i-spark"/></svg> Local-first &middot; Gemma via Ollama</span>
+        <h1>Exorcise the bugs <span class="grad-text">haunting</span> your UI.</h1>
+        <p class="lead">
+          Drop in a screenshot of your broken page and point Bug Buster at your repository.
+          A local Gemma model finds the culprit file, explains why it broke in plain English,
+          and drafts a patch that you review before anything changes.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-solid" href="#exorcise">Start exorcising</a>
+          <a class="btn btn-outline" href="#how">See how it works</a>
+        </div>
+        <ul class="trust">
+          <li><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg> Runs 100% locally</li>
+          <li><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg> No API keys</li>
+          <li><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg> You approve every patch</li>
+        </ul>
+      </div>
+
+      <div class="hero-visual" aria-hidden="true">
+        <div class="ghost-stage">
+          <div class="ring ring--1"></div>
+          <div class="ring ring--2"></div>
+          <svg class="ghost-hero"><use href="#ghost"/></svg>
+          <span class="float-chip chip-a"><svg class="icon"><use href="#i-eye"/></svg> Screenshot</span>
+          <span class="float-chip chip-b"><svg class="icon"><use href="#i-folder"/></svg> Repo scan</span>
+          <span class="float-chip chip-c"><svg class="icon"><use href="#i-cpu"/></svg> Gemma</span>
+          <span class="float-chip chip-d"><svg class="icon"><use href="#i-diff"/></svg> Patch</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== How it works ===== -->
+    <section id="how" class="section container">
+      <div class="section-head">
+        <p class="kicker">How it works</p>
+        <h2>From a broken screenshot to a reviewable fix</h2>
+      </div>
+      <div class="steps">
+        <article class="card step">
+          <span class="step-num">01</span>
+          <span class="step-icon"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg></span>
+          <h3>Show the ghost</h3>
+          <p>Upload a screenshot of the broken page. PNG, JPEG or WebP.</p>
+        </article>
+        <article class="card step">
+          <span class="step-num">02</span>
+          <span class="step-icon"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg></span>
+          <h3>Point to the haunt</h3>
+          <p>Give the path to your local repository. Secrets, node_modules and build folders are never read.</p>
+        </article>
+        <article class="card step">
+          <span class="step-num">03</span>
+          <span class="step-icon"><svg class="icon" aria-hidden="true"><use href="#i-cpu"/></svg></span>
+          <h3>Gemma investigates</h3>
+          <p>Your local model studies the screenshot and the most relevant files, separating evidence from guesses.</p>
+        </article>
+        <article class="card step">
+          <span class="step-num">04</span>
+          <span class="step-icon"><svg class="icon" aria-hidden="true"><use href="#i-diff"/></svg></span>
+          <h3>Review the patch</h3>
+          <p>Get the culprit, a plain-English cause, a Git diff and fixed code. Nothing is applied automatically.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ===== Workbench: form + results ===== -->
+    <section id="exorcise" class="section container">
+      <div class="section-head">
+        <p class="kicker">The workbench</p>
+        <h2>Exorcise a bug</h2>
+      </div>
+
+      <div class="workbench">
+
+        <!-- ---------- Input form ---------- -->
+        <form id="analyze-form" class="card form-card" novalidate>
+          <div class="field">
+            <span class="field-label" id="image-label">1 &middot; Screenshot of the bug</span>
+
+            <!-- data-has-file="true" swaps the drop zone for the preview -->
+            <div id="upload-wrap" class="upload-wrap" data-has-file="false">
+              <label id="drop-zone" class="dropzone" for="image-input">
+                <input id="image-input" class="sr-only" type="file" name="image" accept="image/png,image/jpeg,image/webp" aria-labelledby="image-label" aria-describedby="image-hint image-error">
+                <span class="dz-icon"><svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg></span>
+                <span class="dz-title">Drop a screenshot here</span>
+                <span class="dz-sub">or <u>click to browse</u></span>
+                <span id="image-hint" class="dz-hint">PNG, JPEG or WebP &middot; up to 10 MB</span>
+              </label>
+
+              <figure id="preview" class="preview">
+                <img id="preview-img" alt="Preview of the uploaded screenshot">
+                <figcaption class="preview-meta">
+                  <span class="preview-file">
+                    <svg class="icon" aria-hidden="true"><use href="#i-file"/></svg>
+                    <span id="preview-name" class="preview-name">screenshot.png</span>
+                    <span id="preview-size" class="preview-size">0 KB</span>
+                  </span>
+                  <button id="remove-image" class="btn-link" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg> Remove
+                  </button>
+                </figcaption>
+              </figure>
+            </div>
+            <p id="image-error" class="field-error" role="alert" hidden></p>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="repo-path">2 &middot; Repository path</label>
+            <div class="input-wrap">
+              <svg class="icon input-icon" aria-hidden="true"><use href="#i-folder"/></svg>
+              <input id="repo-path" class="input input--mono input--icon" type="text" name="repo_path" autocomplete="off" spellcheck="false"
+                     placeholder="/home/you/projects/my-app" aria-describedby="repo-help repo-error" required>
+            </div>
+            <p id="repo-help" class="field-help">Full path on the computer running the backend. Browsers cannot browse folders for you, so paste it in.</p>
+            <p id="repo-error" class="field-error" role="alert" hidden></p>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="issue-hint">3 &middot; What looks wrong? <span class="optional">optional</span></label>
+            <textarea id="issue-hint" class="input" name="issue_hint" rows="3" maxlength="1000"
+                      placeholder="e.g. The Log in button text is invisible" aria-describedby="hint-count"></textarea>
+            <p class="field-help field-help--right"><span id="hint-count">0</span> / 1000</p>
+          </div>
+
+          <button id="submit-btn" class="btn-primary" type="submit">
+            <svg class="icon btn-icon" aria-hidden="true"><use href="#ghost-mono"/></svg>
+            <span class="spinner" aria-hidden="true"></span>
+            <span class="btn-label">Exorcise bug</span>
+            <span id="elapsed" class="btn-elapsed" aria-hidden="true"></span>
+          </button>
+
+          <p class="form-note">
+            <svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>
+            Bug Buster only suggests patches. Nothing is ever applied to your repository.
+          </p>
+        </form>
+
+        <!-- ---------- Results ---------- -->
+        <!-- data-state: idle | loading | error | insufficient | success -->
+        <section id="results" class="results" data-state="idle" aria-live="polite" aria-label="Analysis results">
+
+          <!-- idle / empty -->
+          <div class="card state-card" data-panel="idle">
+            <svg class="state-ghost" aria-hidden="true"><use href="#ghost"/></svg>
+            <h3>No exorcisms yet</h3>
+            <p>Upload a screenshot and enter your repository path. Your results will appear here.</p>
+          </div>
+
+          <!-- loading -->
+          <div class="card state-card" data-panel="loading">
+            <div class="scan-ghost" aria-hidden="true">
+              <svg class="state-ghost"><use href="#ghost"/></svg>
+              <span class="scan-line"></span>
+            </div>
+            <h3>Gemma is investigating&hellip;</h3>
+            <p>Reading your screenshot, scanning the repository and drafting a patch. Local models can take a minute or two, so keep this tab open.</p>
+            <p class="loading-timer">Elapsed <span id="loading-elapsed" class="mono">0:00</span></p>
+            <div class="skeletons" aria-hidden="true">
+              <span class="skeleton" style="width:72%"></span>
+              <span class="skeleton" style="width:94%"></span>
+              <span class="skeleton" style="width:58%"></span>
+            </div>
+          </div>
+
+          <!-- error -->
+          <div class="card state-card state-card--error" data-panel="error" role="alert">
+            <span class="state-icon state-icon--error"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg></span>
+            <h3 id="error-title">Something went wrong</h3>
+            <p id="error-message">The backend returned an error.</p>
+            <p class="error-meta"><span id="error-code" class="code-badge">error</span></p>
+            <button id="retry-btn" class="btn btn-outline btn-sm" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg> Try again
+            </button>
+          </div>
+
+          <!-- not enough evidence -->
+          <div class="card state-card state-card--purple" data-panel="insufficient">
+            <span class="state-icon state-icon--purple"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg></span>
+            <h3>Not enough evidence</h3>
+            <p id="insufficient-reason">Bug Buster could not tell which file causes this bug, and it will not guess.</p>
+            <ul class="tips">
+              <li>Describe the bug in the optional description box.</li>
+              <li>Use a clearer screenshot, or crop closer to the problem.</li>
+              <li>Check that the path is the project that produced the page.</li>
+            </ul>
+            <details class="disclosure">
+              <summary>What Gemma saw in the screenshot</summary>
+              <p id="insufficient-details" class="disclosure-body"></p>
+            </details>
+          </div>
+
+          <!-- success -->
+          <div class="result-grid" data-panel="success">
+
+            <div class="meta-row">
+              <span id="confidence-badge" class="badge" data-tone="likely">Likely</span>
+              <span id="verified-badge" class="badge" data-tone="verified">Patch verified</span>
+              <span class="meta-item"><svg class="icon" aria-hidden="true"><use href="#i-cpu"/></svg> <span id="meta-model">gemma3:4b</span></span>
+              <span class="meta-item mono"><span><span id="meta-elapsed">0.0</span>s</span></span>
+            </div>
+
+            <article class="card panel panel--culprit">
+              <header class="panel-head">
+                <h3><svg class="icon" aria-hidden="true"><use href="#i-file"/></svg> Culprit file</h3>
+              </header>
+              <div class="culprit-row">
+                <code id="culprit-file" class="file-chip">-</code>
+                <span id="culprit-lines" class="chip-lines" hidden>lines 0-0</span>
+              </div>
+            </article>
+
+            <article class="card panel">
+              <header class="panel-head">
+                <h3><svg class="icon" aria-hidden="true"><use href="#i-spark"/></svg> Root cause</h3>
+              </header>
+              <p id="root-cause" class="root-cause">-</p>
+            </article>
+
+            <article class="card panel">
+              <header class="panel-head">
+                <h3><svg class="icon" aria-hidden="true"><use href="#i-diff"/></svg> Git diff</h3>
+                <button id="copy-diff" class="btn-copy" type="button">
+                  <svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span class="copy-label">Copy diff</span>
+                </button>
+              </header>
+              <!-- Stage 3 fills this with <span class="diff-line add|del|ctx|hunk|meta"> lines -->
+              <pre class="code-block diff" tabindex="0" aria-label="Suggested Git diff"><code id="git-diff"></code></pre>
+              <p id="diff-empty" class="empty-note" hidden>The model did not produce a usable patch. See the notes below and the fixed code.</p>
+              <ul id="patch-warnings" class="notes" hidden></ul>
+            </article>
+
+            <article class="card panel">
+              <header class="panel-head">
+                <h3><svg class="icon" aria-hidden="true"><use href="#i-code"/></svg> Fixed code</h3>
+                <button id="copy-fixed" class="btn-copy" type="button">
+                  <svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span class="copy-label">Copy code</span>
+                </button>
+              </header>
+              <pre class="code-block" tabindex="0" aria-label="Suggested fixed code"><code id="fixed-code"></code></pre>
+            </article>
+
+            <div class="callout">
+              <svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>
+              <p>
+                <strong>Review before you apply.</strong> Bug Buster never edits your repository. To try this patch,
+                save the diff as <code>fix.patch</code>, run <code>git apply --check fix.patch</code>, then <code>git apply fix.patch</code>.
+              </p>
+            </div>
+
+            <details class="card disclosure disclosure--card">
+              <summary>How Bug Buster got here</summary>
+              <div class="disclosure-body">
+                <h4>Confirmed evidence</h4>
+                <ul id="evidence-list" class="plain-list"></ul>
+                <h4>Guesses</h4>
+                <ul id="guesses-list" class="plain-list"></ul>
+                <h4>Files analysed</h4>
+                <ul id="files-list" class="plain-list mono"></ul>
+                <h4>Screenshot analysis</h4>
+                <p id="screenshot-analysis" class="pre-wrap"></p>
+              </div>
+            </details>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span class="brand brand--sm"><svg class="brand-mark" aria-hidden="true"><use href="#ghost"/></svg> Bug Buster</span>
+      <p>Visual Bug-to-Patch Engine &middot; Hackathon build &middot; Everything runs on your machine.</p>
+    </div>
+  </footer>
+
+  <!-- ===== Backend settings dialog ===== -->
+  <dialog id="settings-dialog" class="dialog" aria-labelledby="settings-title">
+    <form method="dialog" class="dialog-body">
+      <h2 id="settings-title">Backend settings</h2>
+      <p class="field-help">Where the Bug Buster backend is running. The default matches the backend README.</p>
+      <label class="field-label" for="api-url-input">Backend URL</label>
+      <input id="api-url-input" class="input input--mono" type="url" value="http://localhost:8000" spellcheck="false" autocomplete="off">
+      <p id="settings-error" class="field-error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button id="reset-settings" class="btn btn-outline btn-sm" type="button">Reset</button>
+        <span class="spacer"></span>
+        <button id="close-settings" class="btn btn-outline btn-sm" type="button">Cancel</button>
+        <button id="save-settings" class="btn btn-solid btn-sm" type="button">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== Toast ===== -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+</body>
+</html>
