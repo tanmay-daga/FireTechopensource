@@ -1,0 +1,165 @@
+git pull origin main --no-rebase --no-edit
+cd ~/Downloads/bugbuster && cat > index.html <<'LANDINGEOF'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bug Buster — Visual Bug-to-Patch Engine</title>
+<meta name="description" content="Screenshot in, culprit file and Git patch out. Runs entirely on your machine with Gemma via Ollama.">
+<link rel="icon" href="frontend/logo.png">
+<style>
+  :root { --bg:#060609; --panel:#0e0e14; --line:#24242f; --text:#ececf2; --muted:#9b9bab;
+    --orange:#ff6b1a; --gold:#ffc400; --green:#3ddc84; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); line-height:1.6;
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    background-image:radial-gradient(60% 45% at 12% 0%,rgba(255,107,26,.13),transparent 70%),
+      radial-gradient(55% 45% at 88% 8%,rgba(124,92,240,.13),transparent 70%);
+    background-attachment:fixed; }
+  .wrap { max-width:1060px; margin:0 auto; padding:0 22px 64px; }
+  .grad { background:linear-gradient(95deg,#ff4d0a 0%,#ff8c1a 45%,#ffc400 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent; }
+  header { display:flex; align-items:center; gap:12px; padding:22px 0; }
+  .markbox { width:40px; height:40px; border-radius:11px; overflow:hidden; flex:none;
+    background:#0a0a0e; box-shadow:0 0 16px rgba(255,107,26,.38); }
+  .markbox img { width:118px; height:118px; object-fit:cover; display:block; margin:-33px 0 0 -39px; }
+  .wordmark { font-weight:800; font-size:1.25rem; letter-spacing:.02em; }
+  nav { margin-left:auto; display:flex; gap:18px; flex-wrap:wrap; }
+  nav a { color:var(--muted); text-decoration:none; font-size:.95rem; }
+  nav a:hover { color:var(--text); }
+  .hero { display:grid; gap:34px; align-items:center; padding:26px 0 10px; }
+  @media (min-width:880px){ .hero { grid-template-columns:1.05fr .95fr; } }
+  h1 { font-size:clamp(2.1rem,5.2vw,3.3rem); line-height:1.08; margin:0 0 10px; letter-spacing:-.02em; }
+  .tagline { text-transform:uppercase; letter-spacing:.09em; color:#ffa23d; font-weight:650; margin:0 0 14px; }
+  .lead { color:#c6c6d4; font-size:1.07rem; margin:0 0 22px; }
+  .hero-logo { width:100%; max-width:400px; border-radius:22px; display:block; margin:0 auto;
+    filter:drop-shadow(0 0 46px rgba(255,107,26,.4)) drop-shadow(0 0 86px rgba(124,92,240,.24)); }
+  .btns { display:flex; gap:12px; flex-wrap:wrap; }
+  .btn { display:inline-block; padding:12px 22px; border-radius:12px; text-decoration:none; font-weight:700; }
+  .btn-main { background:linear-gradient(95deg,#ff4d0a,#ff8c1a 55%,#ffc400); color:#190a02; }
+  .btn-ghost { border:1px solid var(--line); color:var(--text); }
+  .pills { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+  .pill { font-size:.85rem; color:#b9f3d2; background:rgba(61,220,132,.1);
+    border:1px solid rgba(61,220,132,.3); padding:5px 12px; border-radius:999px; }
+  section { margin-top:56px; }
+  h2 { font-size:1.55rem; margin:0 0 6px; letter-spacing:-.01em; }
+  .sub { color:var(--muted); margin:0 0 22px; }
+  .cards { display:grid; gap:14px; }
+  @media (min-width:760px){ .cards { grid-template-columns:repeat(4,1fr); } }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:15px; padding:18px; }
+  .card .n { font-family:ui-monospace,Menlo,monospace; color:#ffa23d; font-size:.8rem; }
+  .card h3 { margin:8px 0 6px; font-size:1.02rem; }
+  .card p { margin:0; color:var(--muted); font-size:.93rem; }
+  .shot { width:100%; border-radius:15px; border:1px solid var(--line); display:block; }
+  .shots { display:grid; gap:16px; }
+  @media (min-width:800px){ .shots { grid-template-columns:1fr 1fr; } }
+  .note { background:rgba(255,196,0,.07); border:1px solid rgba(255,196,0,.32);
+    border-radius:15px; padding:20px; color:#ffe3a0; }
+  .note h2 { color:var(--gold); }
+  .note p { color:#e8dcb8; }
+  pre { background:#090910; border:1px solid var(--line); border-radius:13px; padding:16px;
+    overflow:auto; font-size:.89rem; line-height:1.7; color:#cfcfdd;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  .k { color:#ffa23d; }
+  table { width:100%; border-collapse:collapse; font-size:.95rem; }
+  td,th { text-align:left; padding:9px 10px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:600; font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; }
+  footer { margin-top:60px; padding-top:22px; border-top:1px solid var(--line); color:var(--muted); font-size:.9rem; }
+  a { color:#ffa23d; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="markbox"><img src="frontend/logo.png" alt=""></span>
+    <span class="wordmark"><span class="grad">BUG</span>BUSTER</span>
+    <nav>
+      <a href="#how">How it works</a>
+      <a href="#run">Run it</a>
+      <a href="https://github.com/tanmay-daga/FireTechopensource">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <div>
+      <h1>Exorcise the bugs <span class="grad">haunting</span> your UI.</h1>
+      <p class="tagline">Hunt Bugs. Build Better.</p>
+      <p class="lead">Drop in a screenshot of a broken page and point Bug Buster at your repository.
+        A local Gemma model finds the culprit file, explains the root cause in plain English,
+        and drafts a Git patch you review before anything changes.</p>
+      <div class="btns">
+        <a class="btn btn-main" href="https://github.com/tanmay-daga/FireTechopensource">View on GitHub</a>
+        <a class="btn btn-ghost" href="#run">How to run it</a>
+      </div>
+      <div class="pills">
+        <span class="pill">100% local</span>
+        <span class="pill">No API keys</span>
+        <span class="pill">Patches never auto-applied</span>
+        <span class="pill">MIT licensed</span>
+      </div>
+    </div>
+    <img class="hero-logo" src="frontend/logo.png" alt="Bug Buster logo">
+  </div>
+
+  <section class="note">
+    <h2>Why there is no live demo on this page</h2>
+    <p>Bug Buster runs <strong>Gemma 3 through Ollama on your own computer</strong> and reads a folder
+      on that same computer. Neither exists on a web host, so the tool is installed and run locally
+      rather than deployed. That is deliberate: your source code and your screenshots never leave your
+      machine, there are no API keys, and there is no per-request cost. This page documents the project —
+      the <a href="https://github.com/tanmay-daga/FireTechopensource">repository</a> is the submission.</p>
+  </section>
+
+  <section id="how">
+    <h2>How it works</h2>
+    <p class="sub">Two model passes, with a safety check before anything reaches you.</p>
+    <div class="cards">
+      <div class="card"><div class="n">01</div><h3>Read the screenshot</h3><p>Gemma describes what is visibly wrong: text, errors, layout, colour and alignment.</p></div>
+      <div class="card"><div class="n">02</div><h3>Scan the repo</h3><p>A bounded scanner reads source files only, skipping secrets, lockfiles and binaries.</p></div>
+      <div class="card"><div class="n">03</div><h3>Find the culprit</h3><p>Gemma gets the description plus the most relevant files and must answer in strict JSON.</p></div>
+      <div class="card"><div class="n">04</div><h3>Verify the patch</h3><p>The diff is checked against your real files. Nothing is ever applied automatically.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What it looks like</h2>
+    <p class="sub">The workbench, and a finished analysis.</p>
+    <div class="shots">
+      <img class="shot" src="screenshots/home-page.png" alt="Bug Buster home page">
+      <img class="shot" src="screenshots/bug-upload.png" alt="Uploading a screenshot of a bug">
+    </div>
+  </section>
+
+  <section id="run">
+    <h2>Run it on your machine</h2>
+    <p class="sub">You need <a href="https://www.python.org">Python 3</a> and <a href="https://ollama.com">Ollama</a>.</p>
+<pre><span class="k">git clone</span> https://github.com/tanmay-daga/FireTechopensource.git bugbuster
+<span class="k">cd</span> bugbuster/backend
+python3 -m venv .venv &amp;&amp; <span class="k">source</span> .venv/bin/activate
+pip install -r requirements.txt
+ollama pull gemma3:4b
+python3 main.py</pre>
+    <p class="sub">Then open <strong>http://localhost:8000</strong>. The backend serves the interface itself,
+      so there is nothing else to start.</p>
+  </section>
+
+  <section>
+    <h2>Built with open models</h2>
+    <table>
+      <tr><th>Component</th><th>What it does</th></tr>
+      <tr><td>Gemma 3 4B (vision)</td><td>Reads the screenshot and analyses the source code</td></tr>
+      <tr><td>Ollama</td><td>Runs the model locally on your machine</td></tr>
+      <tr><td>FastAPI + Uvicorn</td><td>The backend that scans, prompts and validates</td></tr>
+      <tr><td>Vanilla HTML / CSS / JS</td><td>The interface — no build step, no external requests</td></tr>
+    </table>
+  </section>
+
+  <footer>
+    Bug Buster · Hacktoberfest 2026 · Halloween Hack BLR · MIT licensed ·
+    <a href="https://github.com/tanmay-daga/FireTechopensource">github.com/tanmay-daga/FireTechopensource</a><br>
+    AI assistance disclosed in the repository README.
+  </footer>
+</div>
+</body>
+</html>
