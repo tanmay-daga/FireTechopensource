@@ -38,7 +38,7 @@ You need [Python 3.10+](https://www.python.org) and [Ollama](https://ollama.com)
 **Windows:** double-click `start.bat`
 **macOS / Linux:** `chmod +x start.sh && ./start.sh`
 
-The launcher creates a virtual environment, installs dependencies, pulls `gemma3:4b` on first run (about 3 GB), starts the backend on port 8000 and the frontend on port 5500, and opens http://localhost:5500/exp.html.
+http://localhost:5500/exp.html and http://localhost:5500 with http://localhost:8000
 
 ### Manual setup
 
@@ -59,8 +59,7 @@ cd frontend
 python -m http.server 5500
 ```
 
-Open http://localhost:5500/exp.html. More backend detail is in [`backend/README.md`](backend/README.md).
-
+http://localhost:5500/exp.html and http://localhost:5500 with http://localhost:8000
 ## Try the demo
 
 `demo-repo/` contains a tiny login page with a deliberate bug: the login button's text colour equals its background colour, so the label is invisible.
