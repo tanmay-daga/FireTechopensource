@@ -27,7 +27,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from gemma_engine import EngineError, GemmaEngine
@@ -99,6 +100,13 @@ class Settings:
             logger.warning("OLLAMA_MODEL looks invalid; using gemma3:4b")
             model = "gemma3:4b"
 
+        # Sensible local defaults. Without these, a missing .env file left the
+        # allow-list EMPTY and the browser blocked every call from the page.
+        default_origins = [
+            f"http://{h}:{p}"
+            for h in ("localhost", "127.0.0.1")
+            for p in (5500, 5501, 3000, 5173, 8080, 8000)
+        ]
         origins = []
         for item in (os.getenv("ALLOWED_ORIGINS") or "").split(","):
             item = item.strip().rstrip("/")
@@ -111,6 +119,8 @@ class Settings:
                 logger.warning("Ignoring invalid origin in ALLOWED_ORIGINS: %s", item[:60])
                 continue
             origins.append(item)
+        if not origins:
+            origins = default_origins
 
         roots = []
         for item in (os.getenv("ALLOWED_REPO_ROOTS") or "").split(","):
@@ -135,7 +145,7 @@ class Settings:
             allowed_repo_roots=tuple(roots),
             request_timeout_s=_env_int("REQUEST_TIMEOUT_S", 540, 30, 3600),
             ollama_timeout_s=_env_int("OLLAMA_TIMEOUT_S", 180, 10, 1800),
-            num_ctx=_env_int("OLLAMA_NUM_CTX", 16384, 2048, 131072),
+            num_ctx=_env_int("OLLAMA_NUM_CTX", 8192, 2048, 131072),
         )
 
 
@@ -275,6 +285,22 @@ async def _read_image(upload: UploadFile) -> bytes:
 # --------------------------------------------------------------------------
 # Endpoints
 # --------------------------------------------------------------------------
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+
+
+@app.get("/")
+async def ui():
+    """Serve the existing frontend, so http://localhost:8000 is all you need."""
+    page = FRONTEND_DIR / "exp.html"
+    if not page.is_file():
+        return JSONResponse(
+            {"detail": f"frontend/exp.html was not found (looked in {FRONTEND_DIR}).",
+             "error": "frontend_missing"},
+            status_code=404,
+        )
+    return FileResponse(page, media_type="text/html")
+
+
 @app.get("/health")
 async def health(request: Request):
     info = await request.app.state.engine.health()
@@ -396,7 +422,15 @@ async def _analyze(engine: GemmaEngine, image_bytes: bytes, repo_path: str, hint
     )
 
 
+# Mounted last: the routes above are matched first, this only serves
+# exp.css, script.js and any other file sitting in frontend/.
+if FRONTEND_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=str(FRONTEND_DIR)), name="frontend")
+
+
 if __name__ == "__main__":  # optional: `python main.py` instead of the uvicorn command
     import uvicorn
 
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    print("\n  Bug Buster is starting.")
+    print("  Open http://localhost:8000 in your browser.\n")
+    uvicorn.run(app, host="127.0.0.1", port=8000)
